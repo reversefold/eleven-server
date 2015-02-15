@@ -245,3 +245,10 @@ PlayerApi.prototype.apiPlayerCanReach = function apiPlayerCanReach(x, y) {
 	log.warn('TODO Player.apiPlayerCanReach not implemented yet');
 	return true;
 };
+
+PlayerApi.prototype.apiInventoryStackUp = function apiInventoryStackUp() {
+	log.debug('%s.apiInventoryStackUp', this);
+	//TODO: implement&document me
+	log.warn('TODO Player.apiInventoryStackUp not implemented yet');
+	return true;
+};

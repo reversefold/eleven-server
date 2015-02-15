@@ -308,3 +308,9 @@ LocationApi.prototype.apiCopyLocation = function apiCopyLocation(label, moteId,
 	//TODO: implement&document me
 	log.warn('TODO Location.apiCopyLocation not implemented yet');
 };
+
+LocationApi.prototype.apiAddStack = function apiAddStack(item, slot, path, amount) {
+	log.debug('%s.apiAddStack(%s, %s, %s, %s)', this, item, slot, path, amount);
+	//TODO: implement&document me
+	log.warn('TODO Location.apiAddStack not implemented yet');
+};
