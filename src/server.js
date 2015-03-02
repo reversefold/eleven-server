@@ -26,6 +26,7 @@ var metrics = require('metrics');
 var replServer = require('comm/replServer');
 var slack = require('comm/slack');
 var util = require('util');
+var segfaultHandler = require('segfault-handler');
 
 
 /**
@@ -111,6 +112,7 @@ function runMaster() {
 
 function runWorker() {
 	log.info('starting cluster worker %s', config.getGsid());
+	segfaultHandler.registerHandler();
 	// initialize and wait for modules required for GS operation
 	async.series([
 			persInit,
@@ -144,11 +146,7 @@ function runWorker() {
 		}
 		else {
 			log.info('starting explicit GC interval (%s ms)', gcInt);
-			setInterval(function explicitGC() {
-				var timer = metrics.createTimer('process.gc_time');
-				global.gc();
-				timer.stop();
-			}, gcInt);
+			setInterval(global.gc, gcInt);
 		}
 	}
 }

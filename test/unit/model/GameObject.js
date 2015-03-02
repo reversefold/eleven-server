@@ -146,6 +146,24 @@ suite('GameObject', function () {
 			};
 			go.scheduleTimer({fname: 'foo'}, 'key');
 		});
+
+		test('clamps delay to maximum possible value', function (done) {
+			var go = new GameObject();
+			var called = false;
+			go.foo = function foo() {
+				called = true;
+			};
+			var opts = {fname: 'foo', delay: 2147483648};
+			// check that we're
+			var handle = go.scheduleTimer(opts, 'key');
+			setTimeout(function () {
+				assert.isFalse(called, 'prevented the timer from firing ' +
+					'immediately for a delay value >= 2^31');
+				assert.strictEqual(opts.delay, 2147483647, 'delay value limited');
+				clearTimeout(handle);  // clean up
+				done();
+			}, 5);
+		});
 	});
 
 
@@ -393,6 +411,27 @@ suite('GameObject', function () {
 				'no partial interval call/resume timer scheduled');
 			assert.notProperty(go.gsTimers.foo, 'handle',
 				'interval itself not resumed');  // it is still configured but we don't care, the object is deleted anyway
+		});
+
+		test('does not catch up interval if noCatchUp is true', function (done) {
+			var go = new GameObject();
+			go.gsTimers = {
+				foo: {
+					options: {fname: 'foo', delay: 30, interval: true, noCatchUp: true},
+					start: new Date().getTime() - 80,
+				},
+			};
+			var count = 0;
+			var resumeFinished = false;
+			go.foo = function foo() {
+				count++;
+				assert.isTrue(resumeFinished);
+				assert.strictEqual(count, 1, 'first regular interval call, ' +
+					'no catch-up calls');
+				done();
+			};
+			go.resumeGsTimers();
+			resumeFinished = true;
 		});
 	});
 
