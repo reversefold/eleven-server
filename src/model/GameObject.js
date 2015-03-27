@@ -5,6 +5,7 @@ module.exports = GameObject;
 
 var assert = require('assert');
 var config = require('config');
+var errors = require('errors');
 var util = require('util');
 var utils = require('utils');
 var RC = require('data/RequestContext');
@@ -179,6 +180,9 @@ GameObject.prototype.setProps = function setProps(props) {
  * @param {boolean} [options.internal] schedules an "internal" timer if
  *        `true` (for internal use in the GS, not persistent; `false`
  *        by default)
+ * @param {boolean} [options.noCatchUp] if `true`, missed calls are not
+ *        executed upon interval resumption (`false` by default; only
+ *        relevant for intervals)
  */
 GameObject.prototype.setGsTimer = function setGsTimer(options) {
 	log.trace('%s.setGsTimer(%s)', this, util.inspect(options, {depth: 1}));
@@ -220,6 +224,12 @@ GameObject.prototype.setGsTimer = function setGsTimer(options) {
  */
 GameObject.prototype.scheduleTimer = function scheduleTimer(options, key) {
 	var self = this;
+	if (options.delay > 2147483647) {
+		// see https://github.com/joyent/node/issues/3605
+		log.error(new errors.DummyError(), 'timer/interval delay too long: %s',
+			options.delay);
+		options.delay = 2147483647;
+	}
 	var handle = setTimeout(
 		function execTimer() {
 			var rc = new RC(options.fname, self);
@@ -335,7 +345,7 @@ GameObject.prototype.resumeGsTimers = function resumeGsTimers() {
 		else {
 			// perform catch-up calls
 			var num = Math.floor(age / entry.options.delay);
-			if (num > 0) {
+			if (num > 0 && !entry.options.noCatchUp) {
 				log.debug('interval catching up (%s call(s))', num);
 				for (var i = 0; i < num && !this.deleted; i++) {
 					this.gsTimerExec(entry.options, num);

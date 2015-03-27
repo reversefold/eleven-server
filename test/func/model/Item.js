@@ -11,6 +11,7 @@ var Geo = require('model/Geo');
 var pers = require('data/pers');
 var utils = require('utils');
 var pbeMock = require('../../mock/pbe');
+var helpers = require('../../helpers');
 
 
 suite('Item', function () {
@@ -106,7 +107,8 @@ suite('Item', function () {
 		test('queues appropriate changes', function (done) {
 			var rc = new RC();
 			rc.run(function () {
-				var p = new Player({tsid: 'PX', location: {tsid: 'LDUMMY'}});
+				var p = helpers.getOnlinePlayer(
+					{tsid: 'PX', location: {tsid: 'LDUMMY'}});
 				rc.cache[p.tsid] = p;  // add to RC cache so pers.get('PX') works
 				var it = new Item(
 					{tsid: 'IX', class_tsid: 'meat', count: 5, tcont: 'PX'});
@@ -182,7 +184,8 @@ suite('Item', function () {
 		test('queues appropriate changes', function (done) {
 			var rc = new RC();
 			rc.run(function () {
-				var p = new Player({tsid: 'PX', location: {tsid: 'LDUMMY'}});
+				var p = helpers.getOnlinePlayer(
+					{tsid: 'PX', location: {tsid: 'LDUMMY'}});
 				rc.cache[p.tsid] = p;  // add to RC cache so pers.get('PX') works
 				var it = Item.create('meat', 5);
 				it.tcont = p.tsid;
@@ -282,7 +285,8 @@ suite('Item', function () {
 		test('queues appropriate changes', function (done) {
 			var rc = new RC();
 			rc.run(function () {
-				var p = new Player({tsid: 'PX', location: {tsid: 'LDUMMY'}});
+				var p = helpers.getOnlinePlayer(
+					{tsid: 'PX', location: {tsid: 'LDUMMY'}});
 				rc.cache[p.tsid] = p;  // add to RC cache so pers.get('PX') works
 				var it = new Item({tsid: 'IX', class_tsid: 'meat', tcont: 'PX'});
 				it.container = p;
@@ -304,8 +308,8 @@ suite('Item', function () {
 			var rc = new RC();
 			rc.run(function () {
 				var l = Location.create(Geo.create());
-				var p = new Player({tsid: 'PX', location: l});
-				var p2 = new Player({tsid: 'PY', location: l});
+				var p = helpers.getOnlinePlayer({tsid: 'PX', location: l});
+				var p2 = helpers.getOnlinePlayer({tsid: 'PY', location: l});
 				l.players[p.tsid] = p;
 				l.players[p2.tsid] = p2;
 				rc.cache[p.tsid] = p;
@@ -324,6 +328,31 @@ suite('Item', function () {
 				cd = p2.changes[0].itemstack_values.location[it.tsid];
 				assert.strictEqual(cd.path_tsid, it.tsid);
 				assert.strictEqual(cd.count, 0, 'removed from location');
+			}, done);
+		});
+
+		test('does not queue changes for hidden items', function (done) {
+			var rc = new RC();
+			rc.run(function () {
+				// setup
+				var l = Location.create(Geo.create());
+				var p1 = helpers.getOnlinePlayer({tsid: 'P1', location: l});
+				rc.cache[p1.tsid] = p1;
+				var p2 = helpers.getOnlinePlayer({tsid: 'P2', location: l});
+				rc.cache[p2.tsid] = p2;
+				// test adding hidden item (regular case)
+				var i1 = new Item({tsid: 'I1'});
+				i1.setContainer(p1, 1, 2, true);
+				assert.lengthOf(p1.changes, 0, 'no changes queued for hidden item');
+				// test hiding previously non-hidden item
+				var i2 = new Item({tsid: 'I2'});
+				i2.setContainer(p2, 1, 2);
+				p2.changes = [];  // reset (just testing what comes next)
+				i2.setContainer(p1, 1, 2, true);
+				assert.lengthOf(p2.changes, 1,
+					'change queued for removal of not yet hidden item');
+				assert.lengthOf(p1.changes, 0,
+					'no changes queued for now hidden item');
 			}, done);
 		});
 
@@ -352,7 +381,7 @@ suite('Item', function () {
 
 		test('sends removal changes to previous top container', function (done) {
 			var l = new Location({tsid: 'LX'}, new Geo());
-			var p = new Player({tsid: 'PX', location: l});
+			var p = helpers.getOnlinePlayer({tsid: 'PX', location: l});
 			l.players = {PX: p};
 			var b = new Bag({tsid: 'BX', container: l, tcont: l.tsid});
 			var it = new Item({tsid: 'IT', container: b, tcont: l.tsid});
