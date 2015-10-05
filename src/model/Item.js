@@ -54,7 +54,7 @@ function Item(data) {
 	if (this.x === undefined) this.x = 0;
 	if (this.y === undefined) this.y = 0;
 	// for NPC Movement
-	utils.addNonEnumerable(this, 'movement', null);
+	utils.addNonEnumerable(this, 'gsMovement', null);
 	if (!utils.isInt(this.count)) this.count = 1;
 	// add some non-enumerable properties (used internally or by GSJS)
 	utils.addNonEnumerable(this, 'collDet', false);
@@ -67,6 +67,8 @@ function Item(data) {
 	if (this.message_queue) {
 		this.message_queue = new OrderedHash(this.message_queue);
 	}
+	this.patchFuncStatsUpdate('use');
+	this.patchFuncStatsUpdate('updateState');
 }
 
 utils.copyProps(require('model/ItemApi').prototype, Item.prototype);
@@ -75,6 +77,26 @@ utils.copyProps(require('model/ItemApi').prototype, Item.prototype);
 Item.prototype.gsOnLoad = function gsOnLoad() {
 	this.updatePath();
 	Item.super_.prototype.gsOnLoad.call(this);
+};
+
+
+/**
+ * Patches a GSJS function to update client-side item state after being called.
+ * This is a hack and most probably not doing it the "right" way; see
+ * {@link https://trello.com/c/7JCrUaal}.
+ *
+ * @param {string} fname name of the function to patch
+ * @private
+ */
+Item.prototype.patchFuncStatsUpdate = function patchFuncStatsUpdate(fname) {
+	if (typeof this[fname] === 'function') {
+		var gsjsFunc = this[fname];
+		this[fname] = function patchedGsjsFunc() {
+			var ret = gsjsFunc.apply(this, arguments);
+			this.queueChanges();
+			return ret;
+		};
+	}
 };
 
 
@@ -378,7 +400,9 @@ Item.prototype.merge = function merge(that, n) {
 		log.warn('invalid merge amount: %s', n);
 		return 0;
 	}
-	n = Math.min(n, that.count);
+	this.count = parseInt(this.count, 10);
+	that.count = parseInt(that.count, 10);
+	n = Math.min(parseInt(n, 10), that.count);
 	// if items are non-stackable or incompatible, just return zero
 	if (!(this.stackmax > 1 && that.stackmax > 1)) return 0;
 	if (this.class_tsid !== that.class_tsid) return 0;
@@ -418,7 +442,7 @@ Item.prototype.consume = function consume(n) {
  * @private
  */
 Item.prototype.movementTimer = function movementTimer() {
-	if (this.movement) this.movement.moveStep();
+	if (this.gsMovement) this.gsMovement.moveStep();
 };
 
 
@@ -433,8 +457,8 @@ Item.prototype.movementTimer = function movementTimer() {
  * @returns {boolean} true if movement is possible and started
  */
 Item.prototype.gsStartMoving = function gsStartMoving(transport, dest, options) {
-	if (!this.movement) this.movement = new ItemMovement(this);
-	return this.movement.startMove(transport, dest, options);
+	if (!this.gsMovement) this.gsMovement = new ItemMovement(this);
+	return this.gsMovement.startMove(transport, dest, options);
 };
 
 
@@ -442,7 +466,7 @@ Item.prototype.gsStartMoving = function gsStartMoving(transport, dest, options) 
  * Stops item movement.
  */
 Item.prototype.gsStopMoving = function gsStopMoving() {
-	if (this.movement) this.movement.stopMove();
+	if (this.gsMovement) this.gsMovement.stopMove();
 };
 
 
